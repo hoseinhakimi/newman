@@ -24,7 +24,7 @@ int main () {
 	std::uniform_int_distribution<int> uni1(1,1000);           // Guaranteed unbiased
 	std::uniform_int_distribution<int> uni2(0, nodes*nodes-1);
 	std::uniform_real_distribution<> rand(0, 1);
-	MatrixXd adj(nodes,nodes), adj3(nodes,nodes);
+	MatrixXd adj(nodes,nodes), adj3(nodes,nodes), adj2(nodes,nodes);
 	ENERGY   = fopen ("E-T.txt"                  ,"w");
 	TRIANGLE = fopen ("r-T.txt"                  ,"w");
 	NETWORK  = fopen ("Adjacency-Matrix.txt"     ,"w");
@@ -65,7 +65,9 @@ int main () {
 
 //----------- Initial Value for Energy, Edge Mean and Triangles -----//
 		adj3      = adj*adj*adj;
+		adj2      = adj*adj;
 		triangles = adj3.trace()/6;
+		twoStars  = (adj2.sum() - adj2.trace())/2;
 		energy    = theta*adj.sum()/2 - alpha*triangles;
 		cout << "Initial Energy = " <<  energy/energy_normal  << " \n";
 //-------------------------------------------------------------------//
