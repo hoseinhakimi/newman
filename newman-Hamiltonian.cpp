@@ -5,20 +5,20 @@
 #include <random>
 #include <cstdio>	
 #include <chrono>  // for high_resolution_clock
-#include "/home/amir-prof/Dropbox/Research/Nima/Codes/Eigen-header/Eigen"
-#include "/home/amir-prof/Dropbox/Research/Nima/Codes/Eigen-header/Dense"
+#include "/home/hakim/Documents/University/Projects/Amir/Newman/eigen-master/Eigen/Eigen"
+#include "/home/hakim/Documents/University/Projects/Amir/Newman/eigen-master/Eigen/Dense"
 
 using namespace std; // this is a using directive telling the compiler to check the std namespace when resolving identifiers with no prefix
 using namespace Eigen;
 
-const int nodes              = 500;                              //Nodes Number of Network
-const int temp_iteration     = 1;                               //Number of Temprature Iteration
+const int nodes              = 50;                              //Nodes Number of Network
+const int temp_iteration     = 100;                               //Number of Temprature Iteration
 const int ensemble_iteration = 1;                               //Number of Enemble Iteration
 const int iteration          = pow (nodes , 3);                  //Number of Iterations
 
 
 int main () {
-	FILE *ENERGY, *TRIANGLE, *NETWORK;
+	FILE *ENERGY, *TRIANGLE, *NETWORK, *TWOSTAR;
 	std::random_device rd;                                     // Only used once to initialise (seed) engine
 	std::mt19937 rng(rd());                                    // Random-number engine used (Mersenne-Twister in this case)
 	std::uniform_int_distribution<int> uni1(1,1000);           // Guaranteed unbiased
@@ -28,8 +28,9 @@ int main () {
 	ENERGY   = fopen ("E-T.txt"                  ,"w");
 	TRIANGLE = fopen ("r-T.txt"                  ,"w");
 	NETWORK  = fopen ("Adjacency-Matrix.txt"     ,"w");
+	TWOSTAR  = fopen ("TWOSTAR_T.txt"     ,"w");
 //Varibles
-	int    initial_edge, final_edge, delta_E, energy_normal;
+	int    initial_edge, final_edge, delta_E, energy_normal, twoStars_change, twoStars;
 	int    m, n, triangle_num, edge_num, edge_energy, s, w;
 	double alpha, theta, T, triangles, energy, r;
 //Some prints
@@ -38,26 +39,30 @@ int main () {
 	cout << "\033[1;33m Number of thermal iteration = \033[0m"<< temp_iteration << "\n";
 //------------------------- Hamiltonian Parameters -------------------//   
     alpha = 6./nodes;
-    theta = 2.3;	
+    theta = 2.2;	
 //------------------------- Number of Configuration -------------------// 
     edge_num      = nodes*(nodes-1)/2;  
 	triangle_num  = nodes*(nodes-1)*(nodes-2)/6;
-	energy_normal = theta*edge_num - alpha*triangle_num ;
 //--------------------------------------------------------------------//
 //------------------------- Thermal Loop -----------------------------//
 
 	for ( int i = 0; i < temp_iteration ;i++ ) {
 // Record start time
 	    auto start = std::chrono::high_resolution_clock::now();
-		T = 0;
+		T = 0.1;
+		alpha = float(i) / 2000;
+		energy_normal = theta*edge_num - alpha*triangle_num ;
 		cout << "\033[1;34m Temprature is =  \033[0m"<< T << "\n";
+		cout << "\033[1;34m Alpha is =  \033[0m"<< alpha << "\n";
 		cout << "\033[1;33m ****************************************************** \033[0m" << "\n";  
 //-----------------------------Initial Configuration------------------//   
 		for ( int i = 0; i < nodes ;i++ ) {
 			adj(i,i) = 0;
 			for ( int j = 0; j < i ;j++ ) {
-				adj(i,j) = int(rand(rng)*2);
-				adj(j,i) = adj(i,j);
+				// adj(i,j) = int(rand(rng)*2);
+				// adj(j,i) = adj(i,j);
+				adj(i,j)=1;
+				adj(j,i)=1;
 				//cout << adj(i,j) << "\n";  
 			} 
 		}
@@ -65,9 +70,9 @@ int main () {
 
 //----------- Initial Value for Energy, Edge Mean and Triangles -----//
 		adj3      = adj*adj*adj;
-		adj2      = adj*adj;
+		// adj2      = adj*adj;
 		triangles = adj3.trace()/6;
-		twoStars  = (adj2.sum() - adj2.trace())/2;
+		// twoStars  = (adj2.sum() - adj2.trace())/2;
 		energy    = theta*adj.sum()/2 - alpha*triangles;
 		cout << "Initial Energy = " <<  energy/energy_normal  << " \n";
 //-------------------------------------------------------------------//
@@ -95,8 +100,12 @@ int main () {
 				delta_E =  (final_edge - initial_edge)*(theta - alpha*edge_energy);
 //-------------------------------------------------------------------//
 
+				r = rand(rng);
 //--------------------------Accept or Reject--------------------------//
-				if (delta_E < 0) {
+				if ( r < exp(-delta_E/T) ) {
+				// if (delta_E < 0 ) {
+					// twoStars_change = (final_edge - initial_edge) * (adj.col(m).sum() + adj.col(n).sum() - 2 * initial_edge);
+					// twoStars += twoStars_change;
 					adj(m,n) = final_edge;
 					adj(n,m) = adj(m,n);
 				}
@@ -114,15 +123,19 @@ int main () {
 	    adj3        = adj*adj*adj;
 		triangles   = adj3.trace()/6;
 		energy      = theta*adj.sum()/2 - alpha*triangles;
+		adj2      = adj*adj;
+		twoStars  = (adj2.sum() - adj2.trace())/2;
 	    // Record end time
 		auto finish = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = finish - start;
 		cout << "Elapsed time           : " << elapsed.count()        << " s\n";
 		cout << "Final Triangles        = " << triangles/triangle_num << " \n";
 		cout << "Final Energy Iteration = " << energy/energy_normal   << " \n";
+		cout << "Final Two Stars = " << float(twoStars)/(triangle_num*3)   << " \n";
 		//write in files
-		fprintf (ENERGY,     "%f \t %f \n", T, energy     /energy_normal);    
-		fprintf (TRIANGLE,   "%f \t %f \n", T, triangles  /triangle_num ); 
+		fprintf (ENERGY,     "%f \t %f \n", alpha, energy/energy_normal);    
+		fprintf (TRIANGLE,   "%f \t %f \n", alpha, triangles/triangle_num ); 
+		fprintf (TWOSTAR,   "%f \t %f \n", alpha, float(twoStars)/(triangle_num*3)); 
     }
 	for (int i=0; i<nodes; i++){
 		for (int j=0; j<nodes; j++){
